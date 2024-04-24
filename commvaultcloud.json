@@ -1,7 +1,7 @@
 {
     "appid": "dd6086a9-6bd7-4958-903a-e895143af13e",
     "name": "Commvault Cloud",
-    "description": "This app integrates with Commvault API to fetch threat indicators and respond.",
+    "description": "This app integrates with Commvault API to fetch threat indicators and respond",
     "type": "endpoint",
     "product_vendor": "Commvault Systems",
     "logo": "commvaultcloud.png",
@@ -48,7 +48,7 @@
         {
             "action": "test connectivity",
             "identifier": "test_connectivity",
-            "description": "Validate the asset configuration for connectivity using supplied configuration",
+            "description": "Validate the asset configuration for connectivity using supplied configuration.",
             "verbose": "",
             "type": "test",
             "read_only": true,
@@ -60,7 +60,7 @@
             "action": "disable_user",
             "identifier": "disable_user",
             "description": "Disable User",
-            "verbose": "Disable User",
+            "verbose": "",
             "type": "contain",
             "read_only": false,
             "parameters": {

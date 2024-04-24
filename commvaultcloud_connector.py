@@ -22,6 +22,8 @@ from phantom.base_connector import BaseConnector
 # Usage of the consts file is recommended
 from commvaultcloud_consts import Constants
 
+# Usage of the consts file is recommended
+
 
 class RetVal(tuple):
 
@@ -784,8 +786,8 @@ class CommvaultCloudConnector(BaseConnector):
             if r is None:
                 print('Could not update artifact')
             else:
-                error = json.loads(r.text)
-                print('error {} {}'.format(r.status_code, error['message']))
+                error_msg = json.loads(r.text)
+                print('error {} {}'.format(r.status_code, error_msg['message']))
             return False
         resp_data = r.json()
         if 'id' not in resp_data:
@@ -886,9 +888,6 @@ class CommvaultCloudConnector(BaseConnector):
         try:
             events = self._fetch_anomalous_events(param)
         except Exception as e:
-            import traceback
-            stack_trace = traceback.format_exc()
-            print(stack_trace)
             error_msg = self._get_error_message_from_exception(e)
             return action_result.set_status(
                 phantom.APP_ERROR, "Error retrieving events during poll: {}".format(error_msg)
@@ -900,8 +899,8 @@ class CommvaultCloudConnector(BaseConnector):
         try:
             self._create_container_and_artifact(events)
         except Exception as e:
-            err = self._get_error_message_from_exception(e)
-            return action_result.set_status(phantom.APP_ERROR, err)
+            error_msg = self._get_error_message_from_exception(e)
+            return action_result.set_status(phantom.APP_ERROR, error_msg)
         self.save_progress("Polling complete")
         return action_result.set_status(phantom.APP_SUCCESS)
 
