@@ -98,18 +98,18 @@ def field_mapper(field_name) -> str:
         str: Return incoming field by field name.
     """
     field_map = {
-        Constants.event_time: "timeSource",
-        Constants.event_id: "id",
-        Constants.originating_program: "subsystem",
-        Constants.anomaly_sub_type: "AnomalyType",
-        Constants.job: "job",
-        Constants.job_id: "JobId",
-        Constants.originating_client: "client",
-        Constants.affected_files_count: "SuspiciousFileCount",
-        Constants.modified_files_count: "Modified",
-        Constants.renamed_files_count: "Renamed",
-        Constants.created_files_count: "Created",
-        Constants.deleted_files_count: "Deleted"
+        Constants.EVENT_TIME: "timeSource",
+        Constants.EVENT_ID: "id",
+        Constants.ORIGINATING_PROGRAM: "subsystem",
+        Constants.ANOMALY_SUB_TYPE: "AnomalyType",
+        Constants.JOB: "job",
+        Constants.JOB_ID: "JobId",
+        Constants.ORIGINATING_CLIENT: "client",
+        Constants.AFFECTED_FILES_COUNT: "SuspiciousFileCount",
+        Constants.MODIFIED_FILES_COUNT: "Modified",
+        Constants.RENAMED_FILES_COUNT: "Renamed",
+        Constants.CREATED_FILES_COUNT: "Created",
+        Constants.DELETED_FILES_COUNT: "Deleted"
     }
     return field_map[field_name]
 
@@ -266,9 +266,7 @@ class CommvaultCloudConnector(BaseConnector):
                 resp_json
             )
 
-        # Create a URL to connect to
-        if method != 'get':
-            print('Request body {}'.format(data))
+        # # Create a URL to connect to
         url = self._base_url + endpoint
         # self.debug_print('Calling endpoint [{}]'.format(url))
         try:
@@ -308,7 +306,7 @@ class CommvaultCloudConnector(BaseConnector):
         Returns:
             list: List of events if available, otherwise None.
         """
-        print('Entered get_events()')
+        # print('Entered get_events()')
         event_url = (
             f"/events?level=10&showInfo=false&showMinor={show_minor}&"
             f"showMajor={show_major}&showCritical={show_critical}"
@@ -374,9 +372,9 @@ class CommvaultCloudConnector(BaseConnector):
         """
         severity = None
         if anomaly_sub_type in ("File Type", "Threat Analysis"):
-            severity = Constants.severity_high
+            severity = Constants.SEVERITY_HIGH
         elif anomaly_sub_type == "File Activity":
-            severity = Constants.severity_medium
+            severity = Constants.SEVERITY_MEDIUM
         return severity
 
     def fetch_file_details(self, action_result, job_id, subclient_id, anomaly_sub_type):
@@ -392,7 +390,7 @@ class CommvaultCloudConnector(BaseConnector):
         Returns:
             tuple: A tuple containing lists of files and folders.
         """
-        print('Fetching file details')
+        self.debug_print('Fetching file details')
         folders_list = []
         if job_id is None:
             return [], []
@@ -400,7 +398,7 @@ class CommvaultCloudConnector(BaseConnector):
         folder_response = self.get_subclient_content_list(action_result, subclient_id)
         if folder_response is not None:
             for resp in folder_response:
-                folders_list.append(resp[Constants.path_key])
+                folders_list.append(resp[Constants.PATH_KEY])
         return files_list, folders_list
 
     def get_incident_details(self, action_result, message: str):
@@ -425,19 +423,19 @@ class CommvaultCloudConnector(BaseConnector):
         job_id = extract_from_regex(
             message,
             "0",
-            rf"{field_mapper(Constants.job)} \[(.*?)\]",
+            rf"{field_mapper(Constants.JOB)} \[(.*?)\]",
         )
         if job_id == "0" or job_id is None:
             job_id = extract_from_regex(
                 message,
                 "0",
-                rf"{field_mapper(Constants.job_id)}:\[(.*?)\]",
+                rf"{field_mapper(Constants.JOB_ID)}:\[(.*?)\]",
             )
 
         description = format_alert_description(message)
         job_details = self.get_job_details(action_result, job_id)
         if job_details is None:
-            print(f"Invalid job [{job_id}]")
+            self.debug_print(f"Invalid job [{job_id}]")
             return None
         job_start_time = int(
             job_details.get("jobs", [{}])[0].get("jobSummary", {}).get("jobStartTime")
@@ -453,7 +451,7 @@ class CommvaultCloudConnector(BaseConnector):
             files_list, scanned_folder_list = self.fetch_file_details(action_result, job_id, subclient_id,
                                                                       anomaly_sub_type)
             if anomaly_sub_type == Constants.ANOMALY_TYPE_3 or anomaly_sub_type == Constants.ANOMALY_TYPE_2:
-                print(files_list)
+                self.debug_print('There are [{}] files'.format(len(files_list)))
                 files_list = [d['fullPath'] for d in files_list]
         else:
             files_list, scanned_folder_list = [], []
@@ -467,14 +465,14 @@ class CommvaultCloudConnector(BaseConnector):
             "originating_client": extract_from_regex(
                 message,
                 "",
-                r"{} \[(.*?)\]".format(field_mapper(Constants.originating_client)),
+                r"{} \[(.*?)\]".format(field_mapper(Constants.ORIGINATING_CLIENT)),
             ),
             "affected_files_count": if_zero_set_none(
                 extract_from_regex(
                     message,
                     None,
                     r"{}:\[(.*?)\]".format(
-                        field_mapper(Constants.affected_files_count)
+                        field_mapper(Constants.AFFECTED_FILES_COUNT)
                     ),
                 )
             ),
@@ -483,7 +481,7 @@ class CommvaultCloudConnector(BaseConnector):
                     message,
                     None,
                     r"{}FileCount:\[(.*?)\]".format(
-                        field_mapper(Constants.modified_files_count)
+                        field_mapper(Constants.MODIFIED_FILES_COUNT)
                     ),
                 )
             ),
@@ -492,7 +490,7 @@ class CommvaultCloudConnector(BaseConnector):
                     message,
                     None,
                     r"{}FileCount:\[(.*?)\]".format(
-                        field_mapper(Constants.deleted_files_count)
+                        field_mapper(Constants.DELETED_FILES_COUNT)
                     ),
                 )
             ),
@@ -501,7 +499,7 @@ class CommvaultCloudConnector(BaseConnector):
                     message,
                     None,
                     r"{}FileCount:\[(.*?)\]".format(
-                        field_mapper(Constants.renamed_files_count)
+                        field_mapper(Constants.RENAMED_FILES_COUNT)
                     ),
                 )
             ),
@@ -510,7 +508,7 @@ class CommvaultCloudConnector(BaseConnector):
                     message,
                     None,
                     r"{}FileCount:\[(.*?)\]".format(
-                        field_mapper(Constants.created_files_count)
+                        field_mapper(Constants.CREATED_FILES_COUNT)
                     ),
                 )
             ),
@@ -635,20 +633,20 @@ class CommvaultCloudConnector(BaseConnector):
         events = self.get_events_list(action_result)
         out = []
         if not len(events) > 0:
-            print("There are no events")
+            self.debug_print("There are no events")
             return events
         domain = 'Dummy Domain'
         events = sorted(events, key=lambda d: d.get("timeSource"))
         for event in events:
             if event.get("eventCodeString") in Constants.SUPPORTED_EVENT_CODES:
                 event_id = event[
-                    field_mapper(Constants.event_id)
+                    field_mapper(Constants.EVENT_ID)
                 ]
                 event_time = event[
-                    field_mapper(Constants.event_time)
+                    field_mapper(Constants.EVENT_TIME)
                 ]
                 incident = {
-                    "facility": Constants.facility,
+                    "facility": Constants.FACILITY,
                     "msg": None,
                     "msg_id": None,
                     "process_id": None,
@@ -663,12 +661,12 @@ class CommvaultCloudConnector(BaseConnector):
                     ),
                     "originating_program": event[
                         field_mapper(
-                            Constants.originating_program
+                            Constants.ORIGINATING_PROGRAM
                         )
                     ],
                 }
-                det = self.get_incident_details(action_result, event[Constants.description])
-                if det.get(Constants.anomaly_sub_type, "Undefined") in ["File Type", "Threat Analysis"]:
+                det = self.get_incident_details(action_result, event[Constants.DESCRIPTION])
+                if det.get(Constants.ANOMALY_SUB_TYPE, "Undefined") in ["File Type", "Threat Analysis"]:
                     incident.update(det)
                     out.append(incident)
                     if len(out) == max_fetch:
@@ -720,27 +718,28 @@ class CommvaultCloudConnector(BaseConnector):
         container_id = None
         url = "{0}rest/container".format(self.get_phantom_base_url())
         container_common = {
-            "description": event[Constants.description],
+            "description": event[Constants.DESCRIPTION],
         }
         date_obj = datetime.now()
         date_str = date_obj.strftime("%d %B, %Y, %H:%M:%S")
         post_data = container_common.copy()
         post_data['name'] = 'Suspicious File Activity Detected at {}'.format(date_str)
-        post_data['source_data_identifier'] = '{}_{}'.format(event[Constants.event_id], get_unique_guid())
-        post_data['label'] = Constants.container_label
-        post_data['sensitivity'] = Constants.sensitivity_amber
-        post_data['severity'] = event[Constants.severity].lower()
-        post_data['status'] = Constants.container_status_open
+        post_data['source_data_identifier'] = '{}_{}'.format(event[Constants.EVENT_ID], get_unique_guid())
+        post_data['label'] = Constants.CONTAINER_LABEL
+        post_data['sensitivity'] = Constants.SENSITIVITY_AMBER
+        post_data['severity'] = event[Constants.SEVERITY].lower()
+        post_data['status'] = Constants.CONTAINER_STATUS_OPEN
         json_blob = json.dumps(post_data)
         response = requests.post(url, data=json_blob, headers=headers, verify=False)
+        # print(response)
         if response is None or response.status_code != 200:
             if response is None:
-                print('Could not create container/event.')
+                self.debug_print('Could not create container/event.')
             else:
-                print('error {} {}'.format(response.status_code, json.loads(response.text)['message']))
+                self.debug_print('error {} {}'.format(response.status_code, json.loads(response.text)['message']))
             return False
         container_id = response.json().get('id')
-        print('Events with container id [{}] got created successfully'.format(container_id))
+        self.debug_print('Events with container id [{}] got created successfully'.format(container_id))
         return container_id
 
     def _add_artifact(self, container_id, event):
@@ -760,40 +759,40 @@ class CommvaultCloudConnector(BaseConnector):
         artifact_id = get_unique_guid()
         url = '{}rest/artifact'.format(self.get_phantom_base_url())
         post_data = dict()
-        post_data['name'] = 'artifact for {}'.format(Constants.facility)
-        post_data['label'] = Constants.container_label
+        post_data['name'] = 'artifact for {}'.format(Constants.FACILITY)
+        post_data['label'] = Constants.CONTAINER_LABEL
         post_data['container_id'] = container_id
         post_data['source_data_identifier'] = artifact_id
 
         cef = {
-            'deviceHostname': event[Constants.originating_client],
+            'deviceHostname': event[Constants.ORIGINATING_CLIENT],
             'deviceFacility': event['facility'],
             'fileName': event['files_list'],
-            'destinationProcessName': event[Constants.originating_program],
-            'src': event[Constants.anomaly_sub_type]
+            'destinationProcessName': event[Constants.ORIGINATING_PROGRAM],
+            'src': event[Constants.ANOMALY_SUB_TYPE]
         }
         data = cef.copy()
-        data[Constants.affected_files_count] = event[Constants.affected_files_count]
-        data[Constants.modified_files_count] = event[Constants.modified_files_count]
-        data[Constants.deleted_files_count] = event[Constants.deleted_files_count]
-        data[Constants.renamed_files_count] = event[Constants.renamed_files_count]
-        data[Constants.created_files_count] = event[Constants.created_files_count]
+        data[Constants.AFFECTED_FILES_COUNT] = event[Constants.AFFECTED_FILES_COUNT]
+        data[Constants.MODIFIED_FILES_COUNT] = event[Constants.MODIFIED_FILES_COUNT]
+        data[Constants.DELETED_FILES_COUNT] = event[Constants.DELETED_FILES_COUNT]
+        data[Constants.RENAMED_FILES_COUNT] = event[Constants.RENAMED_FILES_COUNT]
+        data[Constants.CREATED_FILES_COUNT] = event[Constants.CREATED_FILES_COUNT]
         post_data['cef'] = cef
         post_data['data'] = data
         json_blob = json.dumps(post_data)
         r = requests.post(url, data=json_blob, headers=headers, verify=False)
         if r is None or r.status_code != 200:
             if r is None:
-                print('Could not update artifact')
+                self.debug_print('Could not update artifact')
             else:
                 error_msg = json.loads(r.text)
-                print('error {} {}'.format(r.status_code, error_msg['message']))
+                self.debug_print('error {} {}'.format(r.status_code, error_msg['message']))
             return False
         resp_data = r.json()
         if 'id' not in resp_data:
             return False
         else:
-            print('Artifact is added.')
+            self.debug_print('Artifact is added.')
         return True
 
     def _handle_disable_user(self, param):
@@ -856,7 +855,7 @@ class CommvaultCloudConnector(BaseConnector):
         ret_val, response = self._make_rest_call(
             '/events?level=1', action_result
         )
-        print('ret_val returned [{}]'.format(ret_val))
+        self.debug_print('ret_val returned [{}]'.format(ret_val))
         if phantom.is_fail(ret_val):
             self.save_progress("Test Connectivity Failed.")
             return action_result.get_status()
@@ -872,11 +871,10 @@ class CommvaultCloudConnector(BaseConnector):
         self._max_fetch = param.get("container_count", "")
         action_result = self.add_action_result(ActionResult(dict(param)))
         last_run = self._state.get("last_run")
-        # last_run = None
+        last_run = None
         if last_run is None:
             self.debug_print("Run Mode: First Scheduled Poll")
             back_fill = datetime.utcnow().astimezone() - timedelta(days=30)
-            print(back_fill)
             self._last_run_epoch = int(back_fill.timestamp())
         else:
             self.debug_print("Run Mode: Scheduled Poll")
@@ -912,11 +910,11 @@ class CommvaultCloudConnector(BaseConnector):
             events: List of events.
         """
         for event in events:
-            print('Processing event [{}]'.format(event))
+            # self.debug_print('Processing event [{}]'.format(event))
             container_id = self._add_container(event)
             if container_id is not None:
                 if self._add_artifact(container_id, event):
-                    print('Container and artifact is added')
+                    self.debug_print('Container and artifact is added')
 
     def _fetch_anomalous_events(self, param):
         """
@@ -932,7 +930,7 @@ class CommvaultCloudConnector(BaseConnector):
         self.save_progress("In action handler for: {0}".format(self.get_action_identifier()))
         action_result = self.add_action_result(ActionResult(dict(param)))
         events = self._fetch_incidents(action_result)
-        print('Filtered events are [{}]'.format(events))
+        self.debug_print('Number of filtered events are [{}]'.format(len(events)))
         return events
 
     def _handle_disable_data_aging(self, param):
@@ -959,7 +957,7 @@ class CommvaultCloudConnector(BaseConnector):
                         },
                     }
                 }
-                print(body)
+                # print(body)
                 ret_val, response = self._make_rest_call(
                     "/Client/" + str(client_id), action_result, data=json.dumps(body), method="post"
                 )
@@ -1118,7 +1116,7 @@ def main():
     with open(args.input_test_json) as f:
         in_json = f.read()
         in_json = json.loads(in_json)
-        print(json.dumps(in_json, indent=4))
+        # print(json.dumps(in_json, indent=4))
 
         connector = CommvaultCloudConnector()
         connector.print_progress_message = True
@@ -1128,7 +1126,7 @@ def main():
             connector._set_csrf_info(csrftoken, headers['Referer'])
 
         ret_val = connector._handle_action(json.dumps(in_json), None)
-        print(json.dumps(json.loads(ret_val), indent=4))
+        # print(json.dumps(json.loads(ret_val), indent=4))
 
     exit(0)
 
