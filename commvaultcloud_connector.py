@@ -20,7 +20,7 @@ from phantom.action_result import ActionResult
 from phantom.base_connector import BaseConnector
 
 # Usage of the consts file is recommended
-from commvaultcloud_consts import Constants
+import commvaultcloud_consts as Constants
 
 # Usage of the consts file is recommended
 
