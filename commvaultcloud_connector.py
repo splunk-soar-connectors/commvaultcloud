@@ -840,9 +840,9 @@ class CommvaultCloudConnector(BaseConnector):
             else:
                 raise Exception("Could not find user with email [{}]".format(user_email))
         except Exception as e:
-            error_msg = self._get_error_message_from_exception(e)
+            error_message = self._get_error_message_from_exception(e)
             return action_result.set_status(
-                phantom.APP_ERROR, "Error while disabling user: {}".format(error_msg)
+                phantom.APP_ERROR, "Error while disabling user: {}".format(error_message)
             )
         self.save_progress('User {} is disabled'.format(user_email))
         return action_result.set_status(phantom.APP_SUCCESS)
@@ -886,9 +886,9 @@ class CommvaultCloudConnector(BaseConnector):
         try:
             events = self._fetch_anomalous_events(param)
         except Exception as e:
-            error_msg = self._get_error_message_from_exception(e)
+            error_message = self._get_error_message_from_exception(e)
             return action_result.set_status(
-                phantom.APP_ERROR, "Error retrieving events during poll: {}".format(error_msg)
+                phantom.APP_ERROR, "Error retrieving events during poll: {}".format(error_message)
             )
 
         self.debug_print(f"Total events retrieved {len(events)}")
@@ -897,8 +897,8 @@ class CommvaultCloudConnector(BaseConnector):
         try:
             self._create_container_and_artifact(events)
         except Exception as e:
-            error_msg = self._get_error_message_from_exception(e)
-            return action_result.set_status(phantom.APP_ERROR, error_msg)
+            error_message = self._get_error_message_from_exception(e)
+            return action_result.set_status(phantom.APP_ERROR, error_message)
         self.save_progress("Polling complete")
         return action_result.set_status(phantom.APP_SUCCESS)
 
@@ -974,9 +974,9 @@ class CommvaultCloudConnector(BaseConnector):
             else:
                 raise Exception('Invalid client [{}]'.format(client_name))
         except Exception as e:
-            error_msg = self._get_error_message_from_exception(e)
+            error_message = self._get_error_message_from_exception(e)
             return action_result.set_status(
-                phantom.APP_ERROR, "Error while disabling data aging: {}".format(error_msg)
+                phantom.APP_ERROR, "Error while disabling data aging: {}".format(error_message)
             )
         self.save_progress('Data aging is disabled for client [{}]'.format(client_name))
         return action_result.set_status(phantom.APP_SUCCESS)
@@ -1006,9 +1006,9 @@ class CommvaultCloudConnector(BaseConnector):
                     error_msg = response.get("errorCode")
                     raise Exception(error_msg)
         except Exception as e:
-            error_msg = self._get_error_message_from_exception(e)
+            error_message = self._get_error_message_from_exception(e)
             return action_result.set_status(
-                phantom.APP_ERROR, "Error while disabling provider: {}".format(error_msg)
+                phantom.APP_ERROR, "Error while disabling provider: {}".format(error_message)
             )
         self.save_progress('Provider {} is disabled'.format(provider_name))
         return action_result.set_status(phantom.APP_SUCCESS)
