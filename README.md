@@ -10,17 +10,6 @@ Minimum Product Version: 6.2.0.355
 
 This app integrates with Commvault API to fetch threat indicators and respond
 
-# Splunk> Phantom
-
-Welcome to the open-source repository for Splunk> Phantom's commvaultcloud App.
-
-Please have a look at our [Contributing Guide](https://github.com/Splunk-SOAR-Apps/.github/blob/main/.github/CONTRIBUTING.md) if you are interested in contributing, raising issues, or learning more about open-source Phantom apps.
-
-## Legal and License
-
-This Phantom App is licensed under the Apache 2.0 license. Please see our [Contributing Guide](https://github.com/Splunk-SOAR-Apps/.github/blob/main/.github/CONTRIBUTING.md#legal-notice) for further details.
-
-
 ### Configuration Variables
 The below configuration variables are required for this Connector to operate.  These variables are specified when configuring a Commvault Cloud asset in SOAR.
 
