@@ -21,7 +21,7 @@
   "utctime_updated": "2024-04-24T07:42:46.413306Z",
   "package_name": "phantom_commvaultcloud",
   "main_module": "commvaultcloud_connector.py",
-    "min_phantom_version": "6.2.1",
+  "min_phantom_version": "6.2.1",
   "app_wizard_version": "1.0.0",
   "configuration": {
     "CommvaultEndpoint": {
