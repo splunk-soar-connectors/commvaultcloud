@@ -2,7 +2,7 @@
 # Commvault Cloud
 
 Publisher: Commvault Systems  
-Connector Version: 1.2.0  
+Connector Version: 1.3.0  
 Product Vendor: Commvault Systems  
 Product Name: Commvault Cloud  
 Product Version Supported (regex): ".\*"  
