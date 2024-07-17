@@ -6,7 +6,7 @@ Connector Version: 1.2.0
 Product Vendor: Commvault Systems  
 Product Name: Commvault Cloud  
 Product Version Supported (regex): ".\*"  
-Minimum Product Version: 6.2.0.355  
+Minimum Product Version: 6.2.1  
 
 This app integrates with Commvault API to fetch threat indicators and respond
 
@@ -17,6 +17,7 @@ VARIABLE | REQUIRED | TYPE | DESCRIPTION
 -------- | -------- | ---- | -----------
 **CommvaultEndpoint** |  required  | string | Commvault End Point
 **CommvaultAccessToken** |  required  | string | Commvault Access Token
+**PhantomAPIToken** |  required  | password | Phantom API token (For creating new events)
 
 ### Supported Actions  
 [test connectivity](#action-test-connectivity) - Validate the asset configuration for connectivity using supplied configuration  
