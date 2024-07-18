@@ -17,7 +17,7 @@
     }
   ],
   "license": "Copyright (c) Commvault Systems, 2024",
-  "app_version": "1.3.0",
+  "app_version": "2.0.0",
   "utctime_updated": "2024-04-24T07:42:46.413306Z",
   "package_name": "phantom_commvaultcloud",
   "main_module": "commvaultcloud_connector.py",
@@ -167,12 +167,12 @@
         {
           "data_path": "action_result.status",
           "data_type": "string",
-                  "column_name": "Status",
-                  "column_order": 0,
-                  "example_values": [
-                      "success",
-                      "failed"
-                  ]
+          "column_name": "Status",
+          "column_order": 0,
+          "example_values": [
+              "success",
+              "failed"
+          ]
         },
         {
           "data_path": "action_result.message",
@@ -197,7 +197,7 @@
       "identifier": "on_poll",
       "description": "Ingest events from Commvault API",
       "verbose": "Ingest events from Commvault API.",
-      "type": "generic",
+      "type": "ingest",
       "read_only": true,
       "parameters": {
         "start_time": {
