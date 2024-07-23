@@ -1030,9 +1030,6 @@ class CommvaultCloudConnector(BaseConnector):
         if action_id == 'on_poll':
             ret_val = self._handle_on_poll(param)
 
-        if action_id == 'fetch_anomalous_events':
-            ret_val = self._fetch_anomalous_events(param)
-
         if action_id == 'disable_data_aging':
             ret_val = self._handle_disable_data_aging(param)
 
