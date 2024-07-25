@@ -17,28 +17,30 @@
     }
   ],
   "license": "Copyright (c) Commvault Systems, 2024",
-  "app_version": "1.2.0",
+  "app_version": "2.0.0",
   "utctime_updated": "2024-04-24T07:42:46.413306Z",
   "package_name": "phantom_commvaultcloud",
   "main_module": "commvaultcloud_connector.py",
-  "min_phantom_version": "6.2.0.355",
+  "min_phantom_version": "6.2.1",
   "app_wizard_version": "1.0.0",
   "configuration": {
     "CommvaultEndpoint": {
       "description": "Commvault End Point",
       "data_type": "string",
       "required": true,
-      "order": 0,
-      "name": "CommvaultEndpoint",
-      "id": 0
+      "order": 0
     },
     "CommvaultAccessToken": {
       "description": "Commvault Access Token",
       "data_type": "string",
       "required": true,
-      "order": 1,
-      "name": "CommvaultAccessToken",
-      "id": 1
+      "order": 1
+    },
+    "PhantomAPIToken": {
+      "description": "Phantom API token (For creating new events)",
+      "data_type": "password",
+      "required": true,
+      "order": 2
     }
   },
   "actions": [
@@ -65,28 +67,25 @@
           "description": "Email Address of User",
           "data_type": "string",
           "required": true,
-          "order": 0,
-          "name": "user_email",
-          "id": 1,
-          "param_name": "user_email"
+          "order": 0
         }
       },
       "output": [
         {
           "data_path": "action_result.parameter.user_email",
           "data_type": "string",
-                  "column_name": "User Email",
+          "column_name": "User Email",
           "column_order": 0
         },
         {
           "data_path": "action_result.status",
           "data_type": "string",
-                  "column_name": "Status",
-                  "column_order": 1,
-                  "example_values": [
-                      "success",
-                      "failed"
-                  ]
+          "column_name": "Status",
+          "column_order": 1,
+          "example_values": [
+              "success",
+              "failed"
+          ]
         },
         {
           "data_path": "action_result.message",
@@ -118,28 +117,25 @@
           "description": "Client Name to disable data aging",
           "data_type": "string",
           "required": true,
-          "order": 0,
-          "name": "client_name",
-          "id": 1,
-          "param_name": "client_name"
+          "order": 0
         }
       },
       "output": [
         {
           "data_path": "action_result.parameter.client_name",
           "data_type": "string",
-                  "column_name": "Client Name",
+          "column_name": "Client Name",
           "column_order": 0
         },
         {
           "data_path": "action_result.status",
           "data_type": "string",
-                  "column_name": "Status",
-                  "column_order": 1,
-                  "example_values": [
-                      "success",
-                      "failed"
-                  ]
+          "column_name": "Status",
+          "column_order": 1,
+          "example_values": [
+              "success",
+              "failed"
+          ]
         },
         {
           "data_path": "action_result.message",
@@ -171,12 +167,12 @@
         {
           "data_path": "action_result.status",
           "data_type": "string",
-                  "column_name": "Status",
-                  "column_order": 0,
-                  "example_values": [
-                      "success",
-                      "failed"
-                  ]
+          "column_name": "Status",
+          "column_order": 0,
+          "example_values": [
+              "success",
+              "failed"
+          ]
         },
         {
           "data_path": "action_result.message",
@@ -201,49 +197,34 @@
       "identifier": "on_poll",
       "description": "Ingest events from Commvault API",
       "verbose": "Ingest events from Commvault API.",
-      "type": "generic",
+      "type": "ingest",
       "read_only": true,
       "parameters": {
         "start_time": {
           "description": "Parameter ignored in this app",
           "data_type": "numeric",
-          "order": 0,
-          "name": "start_time",
-          "id": 1,
-          "param_name": "start_time"
+          "order": 0
         },
         "end_time": {
           "description": "Parameter ignored in this app",
           "data_type": "numeric",
-          "order": 1,
-          "name": "end_time",
-          "id": 2,
-          "param_name": "end_time"
+          "order": 1
         },
         "container_id": {
           "description": "Parameter ignored in this app",
           "data_type": "string",
-          "order": 2,
-          "name": "container_id",
-          "id": 3,
-          "param_name": "container_id"
+          "order": 2
         },
         "container_count": {
           "description": "Maximum number of tickets to be ingested during poll now",
           "data_type": "numeric",
           "default": "1",
-          "order": 3,
-          "name": "container_count",
-          "id": 4,
-          "param_name": "container_count"
+          "order": 3
         },
         "artifact_count": {
           "description": "Parameter ignored in this app",
           "data_type": "numeric",
-          "order": 4,
-          "name": "artifact_count",
-          "id": 5,
-          "param_name": "artifact_count"
+          "order": 4
         }
       },
       "output": [],

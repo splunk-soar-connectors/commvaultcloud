@@ -2,13 +2,31 @@
 # Commvault Cloud
 
 Publisher: Commvault Systems  
-Connector Version: 1.2.0  
+Connector Version: 2.0.0  
 Product Vendor: Commvault Systems  
 Product Name: Commvault Cloud  
 Product Version Supported (regex): ".\*"  
-Minimum Product Version: 6.2.0.355  
+Minimum Product Version: 6.2.1  
 
 This app integrates with Commvault API to fetch threat indicators and respond
+
+<!-- File: README.md
+
+Copyright (c) Commvault Systems, 2024
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software distributed under
+the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
+either express or implied. See the License for the specific language governing permissions
+and limitations under the License. -->
+
+## Playbook Backward Compatibility
+-   A new asset configuration parameter, 'PhantomAPIToken'  has been added in v2.0 of the app. Hence, it is requested to the end-user to update their existing assets and playbooks accordingly.
 
 ### Configuration Variables
 The below configuration variables are required for this Connector to operate.  These variables are specified when configuring a Commvault Cloud asset in SOAR.
@@ -17,6 +35,7 @@ VARIABLE | REQUIRED | TYPE | DESCRIPTION
 -------- | -------- | ---- | -----------
 **CommvaultEndpoint** |  required  | string | Commvault End Point
 **CommvaultAccessToken** |  required  | string | Commvault Access Token
+**PhantomAPIToken** |  required  | password | Phantom API token (For creating new events)
 
 ### Supported Actions  
 [test connectivity](#action-test-connectivity) - Validate the asset configuration for connectivity using supplied configuration  
@@ -105,7 +124,7 @@ summary.total_objects_successful | numeric |  |
 ## action: 'on poll'
 Ingest events from Commvault API
 
-Type: **generic**  
+Type: **ingest**  
 Read only: **True**
 
 Ingest events from Commvault API.
