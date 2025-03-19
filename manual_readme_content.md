@@ -14,4 +14,5 @@ either express or implied. See the License for the specific language governing p
 and limitations under the License. -->
 
 ## Playbook Backward Compatibility
--   A new asset configuration parameter, 'PhantomAPIToken'  has been added in v2.0 of the app. Hence, it is requested to the end-user to update their existing assets and playbooks accordingly.
+
+- A new asset configuration parameter, 'PhantomAPIToken' has been added in v2.0 of the app. Hence, it is requested to the end-user to update their existing assets and playbooks accordingly.
