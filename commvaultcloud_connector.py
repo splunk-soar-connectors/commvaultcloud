@@ -1,6 +1,6 @@
 # File: commvaultcloud_connector.py
 #
-# Copyright (c) Commvault Systems, 2024-2025
+# Copyright (c) Commvault Systems, 2024
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ import commvaultcloud_consts as Constants
 
 
 class RetVal(tuple):
+
     def __new__(cls, val1, val2=None):
         return tuple.__new__(RetVal, (val1, val2))
 
@@ -46,7 +47,8 @@ def if_zero_set_none(value):
     return None
 
 
-def extract_from_regex(message: str, default_value: str, *regex_string_args: str) -> str:
+def extract_from_regex(
+        message: str, default_value: str, *regex_string_args: str) -> str:
     """
     From the message, extract the strings matching the given patterns
 
@@ -79,15 +81,15 @@ def format_alert_description(msg: str) -> str:
 
     # Check if the message contains HTML tags
     if "<html>" in msg and "</html>" in msg:
-        resp = msg[msg.find("<html>") + 6 : msg.find("</html>")]
+        resp = msg[msg.find("<html>") + 6: msg.find("</html>")]
         msg = resp.strip()
 
         # Extract the alert message if it contains specific patterns
         if "Detected " in msg and " Please click " in msg:
-            msg = msg[msg.find("Detected ") : msg.find(" Please click ")]
+            msg = msg[msg.find("Detected "): msg.find(" Please click ")]
             return msg
         if "Possible " in msg and "<span style=" in msg:
-            msg = msg[msg.find("Possible ") : msg.find("<span style=")]
+            msg = msg[msg.find("Possible "): msg.find("<span style=")]
             return msg
     return default_value
 
@@ -114,28 +116,10 @@ def field_mapper(field_name) -> str:
         Constants.MODIFIED_FILES_COUNT: "Modified",
         Constants.RENAMED_FILES_COUNT: "Renamed",
         Constants.CREATED_FILES_COUNT: "Created",
-        Constants.DELETED_FILES_COUNT: "Deleted",
+        Constants.DELETED_FILES_COUNT: "Deleted"
     }
     return field_map[field_name]
 
-
-def get_backup_anomaly(anomaly_id: int) -> str:
-    """
-    Get Anomaly type from anomaly id
-
-    Args:
-        anomaly_id (int): The anomaly id.
-
-    Returns:
-        str: The type of anomaly corresponding to the given id, or "Undefined" if not found.
-    """
-    anomaly_dict = {
-        0: Constants.ANOMALY_TYPE_UNDEFINED,
-        1: Constants.ANOMALY_TYPE_1,
-        2: Constants.ANOMALY_TYPE_2,
-        3: Constants.ANOMALY_TYPE_3,
-    }
-    return anomaly_dict.get(anomaly_id, Constants.ANOMALY_TYPE_UNDEFINED)
 
 
 def get_unique_guid():
@@ -147,16 +131,17 @@ def get_unique_guid():
     """
     import random
     import string
-
-    allowed_chars = string.ascii_letters + string.digits
-    unique_id = "".join(random.choice(allowed_chars) for i in range(16))
+    allowed_chars = string.ascii_uppercase + string.digits
+    unique_id = ''.join(random.choice(allowed_chars) for i in range(6))
     return unique_id
 
 
 class CommvaultCloudConnector(BaseConnector):
+
     def __init__(self):
+
         # Call the BaseConnectors init first
-        super().__init__()
+        super(CommvaultCloudConnector, self).__init__()
         self._last_run_epoch = None
         self._current_run_epoch = None
         self._max_fetch = None
@@ -166,8 +151,12 @@ class CommvaultCloudConnector(BaseConnector):
         # modify this as you deem fit.
         self._base_url = None
         self._access_key = None
+        self._original_access_key = None
         self._headers = list()
         self._phantom_api_token = None
+        self.current_token_dict = dict()
+        self.renew_token_validity_in_days = 1 * 365
+
 
     def _process_empty_response(self, response, action_result):
         """
@@ -181,7 +170,11 @@ class CommvaultCloudConnector(BaseConnector):
         if response.status_code == 200:
             return RetVal(phantom.APP_SUCCESS, {})
 
-        return RetVal(action_result.set_status(phantom.APP_ERROR, "Empty response and no information in the header"), None)
+        return RetVal(
+            action_result.set_status(
+                phantom.APP_ERROR, "Empty response and no information in the header"
+            ), None
+        )
 
     def _process_html_response(self, response, action_result):
         # An html response, treat it like an error
@@ -190,14 +183,14 @@ class CommvaultCloudConnector(BaseConnector):
         try:
             soup = BeautifulSoup(response.text, "html.parser")
             error_text = soup.text
-            split_lines = error_text.split("\n")
+            split_lines = error_text.split('\n')
             split_lines = [x.strip() for x in split_lines if x.strip()]
-            error_text = "\n".join(split_lines)
+            error_text = '\n'.join(split_lines)
         except Exception:
             error_text = "Cannot parse error details"
             return None
-        message = f"Status Code: {status_code}. Data from server:\n{error_text}\n"
-        message = message.replace("{", "{{").replace("}", "}}")
+        message = "Status Code: {0}. Data from server:\n{1}\n".format(status_code, error_text)
+        message = message.replace(u'{', '{{').replace(u'}', '}}')
         return RetVal(action_result.set_status(phantom.APP_ERROR, message), None)
 
     def _process_json_response(self, r, action_result):
@@ -205,34 +198,41 @@ class CommvaultCloudConnector(BaseConnector):
         try:
             resp_json = r.json()
         except Exception as e:
-            return RetVal(action_result.set_status(phantom.APP_ERROR, f"Unable to parse JSON response. Error: {e!s}"), None)
+            return RetVal(
+                action_result.set_status(
+                    phantom.APP_ERROR, "Unable to parse JSON response. Error: {0}".format(str(e))
+                ), None
+            )
 
         # Please specify the status codes here
         if 200 <= r.status_code < 399:
             return RetVal(phantom.APP_SUCCESS, resp_json)
 
         # You should process the error returned in the json
-        message = "Error from server. Status Code: {} Data from server: {}".format(r.status_code, r.text.replace("{", "{{").replace("}", "}}"))
+        message = "Error from server. Status Code: {0} Data from server: {1}".format(
+            r.status_code,
+            r.text.replace(u'{', '{{').replace(u'}', '}}')
+        )
 
         return RetVal(action_result.set_status(phantom.APP_ERROR, message), None)
 
     def _process_response(self, r, action_result):
         # store the r_text in debug data, it will get dumped in the logs if the action fails
-        if hasattr(action_result, "add_debug_data"):
-            action_result.add_debug_data({"r_status_code": r.status_code})
-            action_result.add_debug_data({"r_text": r.text})
-            action_result.add_debug_data({"r_headers": r.headers})
+        if hasattr(action_result, 'add_debug_data'):
+            action_result.add_debug_data({'r_status_code': r.status_code})
+            action_result.add_debug_data({'r_text': r.text})
+            action_result.add_debug_data({'r_headers': r.headers})
 
         # Process each 'Content-Type' of response separately
         # Process a json response
-        if "json" in r.headers.get("Content-Type", ""):
+        if 'json' in r.headers.get('Content-Type', ''):
             return self._process_json_response(r, action_result)
 
         # Process an HTML response, Do this no matter what the api talks.
         # There is a high chance of a PROXY in between phantom and the rest of
         # world, in case of errors, PROXY's return HTML, this function parses
         # the error and adds it to the action_result.
-        if "html" in r.headers.get("Content-Type", ""):
+        if 'html' in r.headers.get('Content-Type', ''):
             return self._process_html_response(r, action_result)
 
         # it's not content-type that is to be parsed, handle an empty response
@@ -240,8 +240,9 @@ class CommvaultCloudConnector(BaseConnector):
             return self._process_empty_response(r, action_result)
 
         # everything else is actually an error at this point
-        message = "Can't process response from server. Status Code: {} Data from server: {}".format(
-            r.status_code, r.text.replace("{", "{{").replace("}", "}}")
+        message = "Can't process response from server. Status Code: {0} Data from server: {1}".format(
+            r.status_code,
+            r.text.replace('{', '{{').replace('}', '}}')
         )
 
         return RetVal(action_result.set_status(phantom.APP_ERROR, message), None)
@@ -253,25 +254,224 @@ class CommvaultCloudConnector(BaseConnector):
         try:
             request_func = getattr(requests, method)
         except AttributeError:
-            return RetVal(action_result.set_status(phantom.APP_ERROR, f"Invalid method: {method}"), resp_json)
+            return RetVal(
+                action_result.set_status(phantom.APP_ERROR, "Invalid method: {0}".format(method)),
+                resp_json
+            )
 
         # # Create a URL to connect to
         url = self._base_url + endpoint
-        # self.debug_print('Calling endpoint [{}]'.format(url))
+        self.debug_print('Calling endpoint [{}]'.format(url))
+        if data is not None:
+            self.debug_print('Payload {}'.format(data))
         try:
+            # Build headers with current access key
+            request_headers = {
+                "authtoken": self._access_key,
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                'User-Agent': "SentinelDataConnector"
+            }
+            if headers and isinstance(headers, dict):
+                request_headers.update(headers)
             r = request_func(
                 url,
                 # auth=(username, password),  # basic authentication
                 data=data,
-                headers=self._headers,
-                verify=config.get("verify_server_cert", False),
+                headers=request_headers,
+                verify=config.get('verify_server_cert', False)
             )
         except Exception as e:
-            return RetVal(action_result.set_status(phantom.APP_ERROR, f"Error Connecting to server. Details: {e!s}"), resp_json)
+            return RetVal(
+                action_result.set_status(
+                    phantom.APP_ERROR, "Error Connecting to server. Details: {0}".format(str(e))
+                ), resp_json
+            )
         # print('Return from rest {}'.format(self._process_response(r, action_result)))
         return self._process_response(r, action_result)
 
-    def get_events(self, action_result, show_minor="false", show_major="true", show_critical="true"):
+
+    def check_create_renew_token(self, param):
+        """
+        Checks if a valid access token is available. If not, it either creates a new token 
+        or renews an expired token if it is still within the renewal period.
+        Falls back to original token if new version features are not supported.
+        """
+        action_result = self.add_action_result(ActionResult(dict(param)))
+        self.debug_print("Checking for token validity")
+        try:
+            token_data = self._get_token_details()
+            if not token_data:
+                self.debug_print("Token details are not present. Attempting to create a new token")
+                token_created = self._generate_access_token_v2(action_result)
+                if token_created:
+                    new_token = self._get_token_details(field_name='accessToken')
+                    if new_token:
+                        self._access_key = f"QSDK {str(new_token)}"
+                        self.debug_print('New access token created successfully')
+                    else:
+                        self.debug_print('Token generation returned True but token not retrieved. Using original token.')
+                        self._access_key = f"QSDK {self._original_access_key}"
+                else:
+                    self.debug_print('Token generation not supported by this server version. Using original token for backward compatibility.')
+                    self._access_key = f"QSDK {self._original_access_key}"
+            else:
+                current_time = int(datetime.now().timestamp())
+                token_expired = current_time >= int(token_data["accessTokenExpiry"])
+                renewable_until = current_time < int(token_data["tokenRenewableTill"])
+                if token_expired and renewable_until:
+                    self.debug_print('Token has expired, attempting to refresh it')
+                    token_renewed = self._renew_token(action_result, token_data['accessToken'], token_data['refreshToken'])
+                    if token_renewed:
+                        renewed_token = self._get_token_details(field_name='accessToken')
+                        if renewed_token:
+                            self._access_key = f"QSDK {str(renewed_token)}"
+                            self.debug_print('Token renewed successfully')
+                        else:
+                            self.debug_print('Token renewal returned True but token not retrieved. Using original token.')
+                            self._access_key = f"QSDK {self._original_access_key}"
+                    else:
+                        self.debug_print('Token renewal failed. Using original token for backward compatibility.')
+                        self._access_key = f"QSDK {self._original_access_key}"
+                elif not renewable_until:
+                    self.debug_print('Token can not be renewed. Using original token for backward compatibility.')
+                    self._access_key = f"QSDK {self._original_access_key}"
+                else:
+                    self.debug_print('Current access token is valid')
+                    current_token = token_data.get('accessToken')
+                    if current_token:
+                        self._access_key = f"QSDK {str(current_token)}"
+        except Exception as e:
+            self.debug_print('Could not fetch access token due to [{}]. Using original token for backward compatibility.'.format(e))
+            self._access_key = f"QSDK {self._original_access_key}"
+            return True
+        return True
+
+    def _get_token_details(self, field_name=None):
+        """
+        Retrieves stored token details from the integration context.
+
+        Args:
+            field_name (str, optional): The specific field to retrieve. Defaults to None.
+
+        Returns:
+            dict or str: The full token details dictionary or a specific field value.
+        """
+        if 'tokenDetailsV2' in self._state:
+            if field_name is not None:
+                return self._state.get("tokenDetailsV2")[field_name]
+            else:
+                return self._state.get("tokenDetailsV2", {})
+        else:
+            return None
+
+    def _update_token_details(self, new_access_token, new_refresh_token, token_expiry_timestamp,
+                             renewable_until_timestamp):
+        """
+        Updates the stored token details in the integration context.
+
+        Args:
+            new_access_token (str): The new access token.
+            new_refresh_token (str): The new refresh token.
+            token_expiry_timestamp (int): The expiry timestamp of the access token.
+            renewable_until_timestamp (int): The timestamp until which the token is renewable.
+        """
+        self._state.update({
+            "tokenDetailsV2": {
+                "accessToken": str(new_access_token),
+                "refreshToken": str(new_refresh_token),
+                "accessTokenExpiry": str(token_expiry_timestamp),
+                "tokenRenewableTill": str(renewable_until_timestamp)
+            }
+        })
+        self.debug_print('Token details are updated to {}'.format(self._state.get("tokenDetailsV2")))
+
+    def _renew_token(self, action_result, access_token, refresh_token):
+        """
+        Renews the access token using the provided refresh token.
+
+        Args:
+            access_token (str): The expired access token.
+            refresh_token (str): The refresh token used to generate a new access token.
+
+        Returns:
+            bool: True if the token was successfully renewed, False otherwise.
+        """
+        try:
+            request_body = {
+                "refreshToken": refresh_token,
+                "accessToken": access_token,
+            }
+            
+            ret_val, data = self._make_rest_call(
+            "/v4/accesstoken/renew", action_result, data=json.dumps(request_body), method='post')
+
+            # Check for errors
+            if "errorCode" in data and data["errorCode"]:
+                self.debug_print(f"Error {data['errorCode']}: {data.get('errorMessage', 'No error message provided')}")
+                return False
+            if 'tokenInfo' in data:
+                data = data['tokenInfo']
+            access_token = data.get("accessToken")
+            refresh_token = data.get("refreshToken")
+            token_expiry_timestamp = data.get("tokenExpiryTimestamp")
+            renewable_until_timestamp = data.get("renewableUntilTimestamp")
+            self._update_token_details(access_token, refresh_token, token_expiry_timestamp,
+                                      renewable_until_timestamp)
+            self.debug_print('Token has been rotated successfully')
+            
+        except Exception as error:
+            return False
+        return True
+
+    def _generate_access_token_v2(self, action_result) -> bool:
+        """
+        Generates a new access token using the API token.
+
+        Args:
+            api_token (str): The API token used for authentication.
+
+        Returns:
+            bool: True if the token was successfully created, False otherwise.
+        """
+        new_access_token = None
+        current_epoch = int(datetime.now().timestamp())
+        token_expiry_epoch = (
+                current_epoch + self.renew_token_validity_in_days * 24 * 60 * 60
+        )
+        token_name = f"splunk-token-renew-till-{token_expiry_epoch}"
+        request_body = {
+            "renewableUntilTimestamp": token_expiry_epoch,
+            "tokenName": token_name,
+        }
+        try:
+            ret_val, data = self._make_rest_call(
+            "/v4/accesstoken", action_result, data=json.dumps(request_body), method='post')
+            self.debug_print(data)
+            if "errorCode" in data and data["errorCode"]:
+                self.debug_print(f"Error {data['errorCode']}: {data.get('errorMessage', 'No error message provided')}")
+                return False
+            if 'tokenInfo' in data:
+                data = data['tokenInfo']
+            access_token = data.get("accessToken")
+            refresh_token = data.get("refreshToken")
+            token_expiry_timestamp = data.get("tokenExpiryTimestamp")
+            renewable_until_timestamp = data.get("renewableUntilTimestamp")
+
+            self._update_token_details(access_token, refresh_token, token_expiry_timestamp,
+                                      renewable_until_timestamp)
+        except Exception as error:
+            self.debug_print(f"Could not generate access token [{error}]")
+            return False
+        return True
+
+    def get_events(
+            self,
+            action_result,
+            show_minor="false",
+            show_major="true",
+            show_critical="true"
+    ):
         """
         Get events
 
@@ -286,14 +486,20 @@ class CommvaultCloudConnector(BaseConnector):
             list: List of events if available, otherwise None.
         """
         # print('Entered get_events()')
-        event_url = f"/events?level=10&showInfo=false&showMinor={show_minor}&showMajor={show_major}&showCritical={show_critical}"
+        event_url = (
+            f"/events?level=10&showInfo=false&showMinor={show_minor}&"
+            f"showMajor={show_major}&showCritical={show_critical}"
+        )
         current_date = datetime.utcnow()
         # print('Current date [{}]'.format(current_date))
         epoch = datetime(1970, 1, 1)
         current_epoch = int((current_date - epoch).total_seconds())
         self._current_run_epoch = current_epoch
         event_endpoint = f"{event_url}&fromTime={self._last_run_epoch}&toTime={self._current_run_epoch}"
-        ret_val, response = self._make_rest_call(event_endpoint, action_result, method="get")
+        headers = {"pagingInfo": "0,10000"}
+        ret_val, response = self._make_rest_call(
+            event_endpoint, action_result, headers=headers, method='get'
+        )
         if response and response.get("commservEvents"):
             return response.get("commservEvents")
         return None
@@ -317,227 +523,107 @@ class CommvaultCloudConnector(BaseConnector):
             events.extend(major_events)
         return events
 
-    def get_subclient_content_list(self, action_result, subclient_id):
+    def get_incident_details_v2(self, event: dict):
         """
-        Get content from subclient
+        Parse incident details directly from an event object.
+        This method does not make any additional REST/API calls.
 
         Args:
-            action_result: The action result object.
-            subclient_id: The subclient ID.
+            event (dict): Event object from /events endpoint.
 
         Returns:
-            str: The content from the subclient.
+            dict: Dictionary containing incident details or None.
         """
-        ret_val, response = self._make_rest_call("/Subclient/" + str(subclient_id), action_result, method="get")
-        response = response.get("subClientProperties", [{}])[0].get("content")
-        return response
-
-    def define_severity(self, anomaly_sub_type):
-        """
-        Function to get severity from anomaly sub type
-
-        Args:
-            anomaly_sub_type (str): The anomaly sub type.
-
-        Returns:
-            str: The severity.
-        """
-        severity = None
-        if anomaly_sub_type in ("File Type", "Threat Analysis"):
-            severity = Constants.SEVERITY_HIGH
-        elif anomaly_sub_type == "File Activity":
-            severity = Constants.SEVERITY_MEDIUM
-        return severity
-
-    def fetch_file_details(self, action_result, job_id, subclient_id, anomaly_sub_type):
-        """
-        Function to fetch the scanned folders list during the backup job
-
-        Args:
-            action_result: The action result object.
-            job_id: The job ID.
-            subclient_id: The subclient ID.
-            anomaly_sub_type: The Anomaly subtype
-
-        Returns:
-            tuple: A tuple containing lists of files and folders.
-        """
-        self.debug_print("Fetching file details")
-        folders_list = []
-        if job_id is None:
-            return [], []
-        files_list = self.get_files_list(action_result, job_id, anomaly_sub_type)
-        folder_response = self.get_subclient_content_list(action_result, subclient_id)
-        if folder_response is not None:
-            for resp in folder_response:
-                folders_list.append(resp[Constants.PATH_KEY])
-        return files_list, folders_list
-
-    def get_incident_details(self, action_result, message: str):
-        """
-        Function to get incident details from the alert description
-
-        Args:
-            action_result: The action result object.
-            message (str): The message containing the alert description.
-
-        Returns:
-            dict: Dictionary containing incident details.
-        """
-        anomaly_sub_type = extract_from_regex(
-            message,
-            "0",
-            rf"{field_mapper('anomaly_sub_type')}:\[(.*?)\]",
-        )
-        if anomaly_sub_type is None or anomaly_sub_type == "0":
+        if not event or not isinstance(event, dict):
             return None
-        anomaly_sub_type = get_backup_anomaly(int(anomaly_sub_type))
+
+        message = event.get(Constants.DESCRIPTION, "")
+        if not message:
+            return None
+
+        event_code = event.get("eventCodeString", "")
+        event_code_to_type = getattr(Constants, "EVENT_CODE_TO_ANOMALY_TYPE", {})
+        event_code_to_severity = getattr(Constants, "EVENT_CODE_TO_SEVERITY", {})
+        anomaly_sub_type = event_code_to_type.get(event_code)
+        if not anomaly_sub_type:
+            return None
+        
+        severity = event_code_to_severity.get(event_code, Constants.SEVERITY_MEDIUM)
+
         job_id = extract_from_regex(
             message,
-            "0",
+            "",
             rf"{field_mapper(Constants.JOB)} \[(.*?)\]",
         )
-        if job_id == "0" or job_id is None:
+        if not job_id:
             job_id = extract_from_regex(
                 message,
-                "0",
+                "",
                 rf"{field_mapper(Constants.JOB_ID)}:\[(.*?)\]",
             )
 
         description = format_alert_description(message)
-        job_details = self.get_job_details(action_result, job_id)
-        if job_details is None:
-            self.debug_print(f"Invalid job [{job_id}]")
-            return None
-        job_start_time = int(job_details.get("jobs", [{}])[0].get("jobSummary", {}).get("jobStartTime"))
-        job_end_time = int(job_details.get("jobs", [{}])[0].get("jobSummary", {}).get("jobEndTime"))
-        subclient_id = job_details.get("jobs", [{}])[0].get("jobSummary", {}).get("subclient", {}).get("subclientId")
-        # to-do
-        if subclient_id != 0:
-            files_list, scanned_folder_list = self.fetch_file_details(action_result, job_id, subclient_id, anomaly_sub_type)
-            if anomaly_sub_type == Constants.ANOMALY_TYPE_3 or anomaly_sub_type == Constants.ANOMALY_TYPE_2:
-                self.debug_print(f"There are [{len(files_list)}] files")
-                files_list = [d["fullPath"] for d in files_list]
-        else:
-            files_list, scanned_folder_list = [], []
+        originating_client = extract_from_regex(
+            message,
+            "",
+            r"ClientName:\[(.*?)\]",
+            r"{} \[(.*?)\]".format(field_mapper(Constants.ORIGINATING_CLIENT)),
+            r"{}:\[(.*?)\]".format(field_mapper(Constants.ORIGINATING_CLIENT)),
+        )
+        if not originating_client:
+            client_entity = event.get("clientEntity", {})
+            originating_client = client_entity.get("displayName") or client_entity.get("clientName") or ""
 
         details = {
-            "subclient_id": subclient_id,
-            "files_list": files_list,
-            "scanned_folder_list": scanned_folder_list,
+            "files_list": [],
+            "scanned_folder_list": [],
             "anomaly_sub_type": anomaly_sub_type,
-            "severity": self.define_severity(anomaly_sub_type),
-            "originating_client": extract_from_regex(
-                message,
-                "",
-                rf"{field_mapper(Constants.ORIGINATING_CLIENT)} \[(.*?)\]",
-            ),
+            "severity": severity,
+            "originating_client": originating_client,
             "affected_files_count": if_zero_set_none(
                 extract_from_regex(
                     message,
                     None,
-                    rf"{field_mapper(Constants.AFFECTED_FILES_COUNT)}:\[(.*?)\]",
+                    r"{}:\[(.*?)\]".format(field_mapper(Constants.AFFECTED_FILES_COUNT)),
                 )
             ),
             "modified_files_count": if_zero_set_none(
                 extract_from_regex(
                     message,
                     None,
-                    rf"{field_mapper(Constants.MODIFIED_FILES_COUNT)}FileCount:\[(.*?)\]",
+                    r"{}FileCount:\[(.*?)\]".format(field_mapper(Constants.MODIFIED_FILES_COUNT)),
                 )
             ),
             "deleted_files_count": if_zero_set_none(
                 extract_from_regex(
                     message,
                     None,
-                    rf"{field_mapper(Constants.DELETED_FILES_COUNT)}FileCount:\[(.*?)\]",
+                    r"{}FileCount:\[(.*?)\]".format(field_mapper(Constants.DELETED_FILES_COUNT)),
                 )
             ),
             "renamed_files_count": if_zero_set_none(
                 extract_from_regex(
                     message,
                     None,
-                    rf"{field_mapper(Constants.RENAMED_FILES_COUNT)}FileCount:\[(.*?)\]",
+                    r"{}FileCount:\[(.*?)\]".format(field_mapper(Constants.RENAMED_FILES_COUNT)),
                 )
             ),
             "created_files_count": if_zero_set_none(
                 extract_from_regex(
                     message,
                     None,
-                    rf"{field_mapper(Constants.CREATED_FILES_COUNT)}FileCount:\[(.*?)\]",
+                    r"{}FileCount:\[(.*?)\]".format(field_mapper(Constants.CREATED_FILES_COUNT)),
                 )
             ),
-            "job_start_time": datetime.utcfromtimestamp(job_start_time).strftime("%Y-%m-%d %H:%M:%S"),
-            "job_end_time": datetime.utcfromtimestamp(job_end_time).strftime("%Y-%m-%d %H:%M:%S"),
+            "job_start_time": None,
+            "job_end_time": None,
             "job_id": job_id,
-            "external_link": extract_from_regex(message, "", "href='(.*?)'", 'href="(.*?)"'),
+            "external_link": extract_from_regex(
+                message, "", "href='(.*?)'", 'href="(.*?)"'
+            ),
             "description": description,
         }
         return details
-
-    def get_job_details(self, action_result, job_id):
-        """
-        Get job details by job Id
-
-        Args:
-            action_result: The action result object.
-            job_id: The job ID.
-
-        Returns:
-            dict: Dictionary containing job details.
-        """
-        out = None
-        ret_val, response = self._make_rest_call("/Job/" + str(job_id), action_result, method="get")
-        if ("totalRecordsWithoutPaging" in response) and (int(response["totalRecordsWithoutPaging"]) > 0):
-            out = response
-        return out
-
-    def get_files_list(self, action_result, job_id, anomaly_sub_type):
-        """
-        Get file list from analysis job
-
-        Args:
-            action_result: The action result object.
-            job_id: The job ID.
-            anomaly_sub_type: Anomaly subtype
-
-        Returns:
-            list: List of files.
-        """
-        file_list = []
-        # print('Anomaly type [{}]'.format(anomaly_sub_type))
-        if anomaly_sub_type == Constants.ANOMALY_TYPE_2:
-            base_payload = Constants.ANOMALY_TYPE_2_PAYLOAD
-        elif anomaly_sub_type == Constants.ANOMALY_TYPE_3:
-            base_payload = Constants.ANOMALY_TYPE_3_PAYLOAD
-        else:
-            # print('File listing is not supporting for anomaly sub type [{}]'.format(anomaly_sub_type))
-            return file_list
-        # print(base_payload)
-        base_payload = base64.b64decode(base_payload).decode("utf-8")
-        base_payload = json.loads(base_payload)
-        base_payload["advOptions"]["advConfig"]["browseAdvancedConfigBrowseByJob"]["jobId"] = int(job_id)
-        # print(base_payload)
-        ret_val, resp = self._make_rest_call("/DoBrowse", action_result, data=json.dumps(base_payload), method="post")
-        if resp is None:
-            return file_list
-        browse_responses = resp.get("browseResponses", [])
-        # print('Browse response [{}]'.format(browse_responses))
-        for browse_resp in browse_responses:
-            if browse_resp.get("respType") == 0:
-                browse_result = browse_resp.get("browseResult")
-                if "dataResultSet" in browse_result:
-                    for data_result_set in browse_result.get("dataResultSet"):
-                        file = {}
-                        filepath = data_result_set.get("path")
-                        file["sizeinkb"] = data_result_set.get("size")
-                        file["folder"] = "\\".join(filepath.split("\\")[:-1])
-                        file["filename"] = data_result_set.get("displayName")
-                        if anomaly_sub_type == Constants.ANOMALY_TYPE_2:
-                            file["fullPath"] = data_result_set.get("displayPath")
-                        file_list.append(file)
-        # print('File list [{}]'.format(file_list))
-        return file_list
 
     def get_client_id(self, action_result, client_name):
         """
@@ -552,13 +638,47 @@ class CommvaultCloudConnector(BaseConnector):
         """
         client_id = None
         if client_name is not None:
-            ret_val, resp = self._make_rest_call("/GetId?clientname=" + client_name, action_result, method="get")
+            ret_val, resp = self._make_rest_call(
+                "/GetId?clientname=" + client_name, action_result, method='get'
+            )
             client_id = resp.get("clientId")
             if client_id < 0:
                 client_id = 0
         return client_id
 
-    def _fetch_incidents(self, action_result, max_fetch=100):
+    def get_company_details(self, action_result):
+        company_id = None
+        try:
+            ret_val, resp = self._make_rest_call("/V2/whoami", action_result, method='get'
+                                                 )
+            if 'company' in resp:
+                company_id = resp.get('company').get('id')
+        except Exception as e:
+            self.debug_print('Could not find the company details due to [{}]'.format(e))
+        return company_id
+
+    def register(self, param):
+        try:
+            action_result = self.add_action_result(ActionResult(dict(param)))
+            company_id = self.get_company_details(action_result)
+
+            if company_id is not None:
+                self.debug_print('Found company [{}]'.format(company_id))
+                url = "/V4/Company/{}/SecurityPartners/Register/{}".format(company_id,
+                                                                           Constants.PARTNER_ID)
+                ret_val, resp = self._make_rest_call(
+                    url, action_result, method='put'
+                )
+                self.debug_print('Response from registration [{}]'.format(resp))
+                if 'error' in resp:
+                    if resp['error']['errorCode'] == 0:
+                        self.debug_print('Registered successfully!')
+        except Exception as e:
+            self.debug_print('Could not register due to [{}]'.format(e))
+            pass
+
+    def _fetch_incidents(
+            self, action_result, max_fetch=100):
         """
         Fetch incidents
 
@@ -575,31 +695,55 @@ class CommvaultCloudConnector(BaseConnector):
         if not len(events) > 0:
             self.debug_print("There are no events")
             return events
-        domain = "Dummy Domain"
+        domain = 'Dummy Domain'
         events = sorted(events, key=lambda d: d.get("timeSource"))
+        filtered_event_codes = {}
+        self.debug_print('Total events fetched [{}]'.format(len(events)))
         for event in events:
-            if event.get("eventCodeString") in Constants.SUPPORTED_EVENT_CODES:
-                event_id = event[field_mapper(Constants.EVENT_ID)]
-                event_time = event[field_mapper(Constants.EVENT_TIME)]
-                incident = {
-                    "facility": Constants.FACILITY,
-                    "msg": None,
-                    "msg_id": None,
-                    "process_id": None,
-                    "sd": {},
-                    "host_name": domain,
-                    "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
-                    "occurred": None,
-                    "event_id": event_id,
-                    "event_time": datetime.fromtimestamp(event_time).strftime("%Y-%m-%d %H:%M:%S"),
-                    "originating_program": event[field_mapper(Constants.ORIGINATING_PROGRAM)],
-                }
-                det = self.get_incident_details(action_result, event[Constants.DESCRIPTION])
-                if det.get(Constants.ANOMALY_SUB_TYPE, "Undefined") in ["File Type", "Threat Analysis"]:
-                    incident.update(det)
-                    out.append(incident)
-                    if len(out) == max_fetch:
-                        break
+            event_code = event.get("eventCodeString")
+            if event_code not in Constants.SUPPORTED_EVENT_CODES:
+                filtered_event_codes[event_code] = filtered_event_codes.get(event_code, 0) + 1
+                continue
+            event_id = event[
+                field_mapper(Constants.EVENT_ID)
+            ]
+            event_time = event[
+                field_mapper(Constants.EVENT_TIME)
+            ]
+            incident = {
+                "facility": Constants.FACILITY,
+                "msg": None,
+                "msg_id": None,
+                "process_id": None,
+                "sd": {},
+                "host_name": domain,
+                "timestamp": datetime.utcnow().strftime(
+                    "%Y-%m-%d %H:%M:%S"),
+                "occurred": None,
+                "event_id": event_id,
+                "event_time": datetime.fromtimestamp(event_time).strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                ),
+                "originating_program": event[
+                    field_mapper(
+                        Constants.ORIGINATING_PROGRAM
+                    )
+                ],
+            }
+            det = self.get_incident_details_v2(event)
+            if not det:
+                self.debug_print('Skipping event [{}] as incident details could not be extracted'.format(event_id))
+                continue
+            if det.get(Constants.ANOMALY_SUB_TYPE):
+                incident.update(det)
+                incident['msg'] = incident.get(Constants.DESCRIPTION)
+                out.append(incident)
+                if len(out) == max_fetch:
+                    break
+            
+
+        if filtered_event_codes:
+            self.debug_print('Filtered unsupported event codes [{}]'.format(filtered_event_codes))
         return out
 
     def _get_error_message_from_exception(self, e):
@@ -625,9 +769,9 @@ class CommvaultCloudConnector(BaseConnector):
         except Exception:
             return error_code
         if not error_code:
-            error_text = f"Error Message: {error_msg}"
+            error_text = "Error Message: {}".format(error_msg)
         else:
-            error_text = f"Error Code: {error_code}. Error Message: {error_msg}"
+            error_text = "Error Code: {}. Error Message: {}".format(error_code, error_msg)
 
         return error_text
 
@@ -641,32 +785,35 @@ class CommvaultCloudConnector(BaseConnector):
         Returns:
             str: Container ID if successful, otherwise False.
         """
-        headers = {"ph-auth-token": self._phantom_api_token}
+        headers = {
+            "ph-auth-token": self._phantom_api_token
+        }
         container_id = None
-        url = f"{self.get_phantom_base_url()}rest/container"
+        url = "{0}rest/container".format(self.get_phantom_base_url())
         container_common = {
             "description": event[Constants.DESCRIPTION],
         }
         date_obj = datetime.now()
         date_str = date_obj.strftime("%d %B, %Y, %H:%M:%S")
         post_data = container_common.copy()
-        post_data["name"] = f"Suspicious File Activity Detected at {date_str}"
-        post_data["source_data_identifier"] = f"{event[Constants.EVENT_ID]}_{get_unique_guid()}"
-        post_data["label"] = Constants.CONTAINER_LABEL
-        post_data["sensitivity"] = Constants.SENSITIVITY_AMBER
-        post_data["severity"] = event[Constants.SEVERITY].lower()
-        post_data["status"] = Constants.CONTAINER_STATUS_OPEN
+        anomaly_type = event.get(Constants.ANOMALY_SUB_TYPE, 'Unknown Threat')
+        post_data['name'] = '{} at {}'.format(anomaly_type, date_str)
+        post_data['source_data_identifier'] = '{}_{}'.format(event[Constants.EVENT_ID], get_unique_guid())
+        post_data['label'] = Constants.CONTAINER_LABEL
+        post_data['sensitivity'] = Constants.SENSITIVITY_AMBER
+        post_data['severity'] = (event[Constants.SEVERITY] or Constants.SEVERITY_MEDIUM).lower()
+        post_data['status'] = Constants.CONTAINER_STATUS_OPEN
         json_blob = json.dumps(post_data)
         response = requests.post(url, data=json_blob, headers=headers, verify=False)
         # print(response)
         if response is None or response.status_code != 200:
             if response is None:
-                self.debug_print("Could not create container/event.")
+                self.debug_print('Could not create container/event.')
             else:
-                self.debug_print("error {} {}".format(response.status_code, json.loads(response.text)["message"]))
+                self.debug_print('error {} {}'.format(response.status_code, json.loads(response.text)['message']))
             return False
-        container_id = response.json().get("id")
-        self.debug_print(f"Events with container id [{container_id}] got created successfully")
+        container_id = response.json().get('id')
+        self.debug_print('Events with container id [{}] got created successfully'.format(container_id))
         return container_id
 
     def _add_artifact(self, container_id, event):
@@ -680,67 +827,86 @@ class CommvaultCloudConnector(BaseConnector):
         Returns:
             bool: True if successful, otherwise False.
         """
-        headers = {"ph-auth-token": self._phantom_api_token}
+        headers = {
+            "ph-auth-token": self._phantom_api_token
+        }
         artifact_id = get_unique_guid()
-        url = f"{self.get_phantom_base_url()}rest/artifact"
+        url = '{}rest/artifact'.format(self.get_phantom_base_url())
         post_data = dict()
-        post_data["name"] = f"artifact for {Constants.FACILITY}"
-        post_data["label"] = Constants.CONTAINER_LABEL
-        post_data["container_id"] = container_id
-        post_data["source_data_identifier"] = artifact_id
+        post_data['name'] = 'artifact for {}'.format(Constants.FACILITY)
+        post_data['label'] = Constants.CONTAINER_LABEL
+        post_data['container_id'] = container_id
+        post_data['source_data_identifier'] = artifact_id
+
+        raw_description = event.get(Constants.DESCRIPTION, '')
+        clean_description = BeautifulSoup(raw_description, "html.parser").get_text(" ", strip=True)
 
         cef = {
-            "deviceHostname": event[Constants.ORIGINATING_CLIENT],
-            "deviceFacility": event["facility"],
-            "fileName": event["files_list"],
-            "destinationProcessName": event[Constants.ORIGINATING_PROGRAM],
-            "src": event[Constants.ANOMALY_SUB_TYPE],
+            'deviceHostname': event[Constants.ORIGINATING_CLIENT],
+            'deviceFacility': event['facility'],
+            'fileName': event['files_list'],
+            'destinationProcessName': event[Constants.ORIGINATING_PROGRAM],
+            'src': event[Constants.ANOMALY_SUB_TYPE],
+            'severity': event.get(Constants.SEVERITY, Constants.SEVERITY_MEDIUM),
+            'message': clean_description,
+            'eventId': event.get('event_id', ''),
+            'eventTime': event.get('event_time', '')
         }
         data = cef.copy()
-        data[Constants.AFFECTED_FILES_COUNT] = event[Constants.AFFECTED_FILES_COUNT]
-        data[Constants.MODIFIED_FILES_COUNT] = event[Constants.MODIFIED_FILES_COUNT]
-        data[Constants.DELETED_FILES_COUNT] = event[Constants.DELETED_FILES_COUNT]
-        data[Constants.RENAMED_FILES_COUNT] = event[Constants.RENAMED_FILES_COUNT]
-        data[Constants.CREATED_FILES_COUNT] = event[Constants.CREATED_FILES_COUNT]
-        post_data["cef"] = cef
-        post_data["data"] = data
+        data[Constants.AFFECTED_FILES_COUNT] = event.get(Constants.AFFECTED_FILES_COUNT)
+        data[Constants.MODIFIED_FILES_COUNT] = event.get(Constants.MODIFIED_FILES_COUNT)
+        data[Constants.DELETED_FILES_COUNT] = event.get(Constants.DELETED_FILES_COUNT)
+        data[Constants.RENAMED_FILES_COUNT] = event.get(Constants.RENAMED_FILES_COUNT)
+        data[Constants.CREATED_FILES_COUNT] = event.get(Constants.CREATED_FILES_COUNT)
+        post_data['cef'] = cef
+        post_data['data'] = data
         json_blob = json.dumps(post_data)
         r = requests.post(url, data=json_blob, headers=headers, verify=False)
         if r is None or r.status_code != 200:
             if r is None:
-                self.debug_print("Could not update artifact")
+                self.debug_print('Could not update artifact')
             else:
                 error_msg = json.loads(r.text)
-                self.debug_print("error {} {}".format(r.status_code, error_msg["message"]))
+                self.debug_print('error {} {}'.format(r.status_code, error_msg['message']))
             return False
         resp_data = r.json()
-        if "id" not in resp_data:
+        if 'id' not in resp_data:
             return False
         else:
-            self.debug_print("Artifact is added.")
+            self.debug_print('Artifact is added.')
         return True
 
     def _handle_disable_user(self, param):
-        self.save_progress(f"In action handler for: {self.get_action_identifier()}")
+        self.save_progress("In action handler for: {0}".format(self.get_action_identifier()))
         action_result = self.add_action_result(ActionResult(dict(param)))
         user_id = None
         try:
-            user_email = param["user_email"]
+            user_email = param['user_email']
             # response = self.http_request("GET", "/User?level=10")
-            ret_val, response = self._make_rest_call("/User?level=10", action_result, method="get")
+            ret_val, response = self._make_rest_call(
+                "/User?level=10", action_result, method="get"
+            )
             user_list = response["users"]
             current_user = next(
-                (user for user in user_list if user.get("email") == user_email or user.get("UPN") == user_email),
+                (
+                    user
+                    for user in user_list
+                    if user.get("email") == user_email or user.get("UPN") == user_email
+                ),
                 None,
             )
             if current_user:
                 user_id = str(current_user.get("userEntity", {}).get("userId"))
                 # response = self.http_request("GET", f"/User/{user_id}")
-                ret_val, response = self._make_rest_call(f"/User/{user_id}", action_result, method="get")
+                ret_val, response = self._make_rest_call(
+                    f"/User/{user_id}", action_result, method="get"
+                )
                 if ret_val:
                     if response.get("users", [{}])[0].get("enableUser"):
                         # response = self.http_request("PUT", f"/User/{user_id}/Disable")
-                        ret_val, response = self._make_rest_call(f"/User/{user_id}/Disable", action_result, method="put")
+                        ret_val, response = self._make_rest_call(
+                            f"/User/{user_id}/Disable", action_result, method="put"
+                        )
                         if phantom.is_fail(ret_val):
                             return action_result.get_status()
 
@@ -751,13 +917,15 @@ class CommvaultCloudConnector(BaseConnector):
                             else:
                                 action_result.add_data(response)
                     else:
-                        self.save_progress(f"User [{user_email}] is already disabled.")
+                        self.save_progress("User [{}] is already disabled.".format(user_email))
             else:
-                raise Exception(f"Could not find user with email [{user_email}]")
+                raise Exception("Could not find user with email [{}]".format(user_email))
         except Exception as e:
             error_message = self._get_error_message_from_exception(e)
-            return action_result.set_status(phantom.APP_ERROR, f"Error while disabling user: {error_message}")
-        self.save_progress(f"User {user_email} is disabled")
+            return action_result.set_status(
+                phantom.APP_ERROR, "Error while disabling user: {}".format(error_message)
+            )
+        self.save_progress('User {} is disabled'.format(user_email))
         return action_result.set_status(phantom.APP_SUCCESS)
 
     def _handle_test_connectivity(self, param):
@@ -765,8 +933,10 @@ class CommvaultCloudConnector(BaseConnector):
         action_result = self.add_action_result(ActionResult(dict(param)))
         self.save_progress("Connecting to endpoint")
         # make rest call
-        ret_val, response = self._make_rest_call("/events?level=1", action_result)
-        self.debug_print(f"ret_val returned [{ret_val}]")
+        ret_val, response = self._make_rest_call(
+            '/events?level=1', action_result
+        )
+        self.debug_print('ret_val returned [{}]'.format(ret_val))
         if phantom.is_fail(ret_val):
             self.save_progress("Test Connectivity Failed.")
             return action_result.get_status()
@@ -776,11 +946,13 @@ class CommvaultCloudConnector(BaseConnector):
 
     def _handle_on_poll(self, param):
         events = list()
-        self.save_progress(f"In action handler for: {self.get_action_identifier()}")
+        self.save_progress(
+            "In action handler for: {0}".format(self.get_action_identifier())
+        )
         self._max_fetch = param.get("container_count", "")
         action_result = self.add_action_result(ActionResult(dict(param)))
         last_run = self._state.get("last_run")
-        last_run = None
+        #last_run = None
         if last_run is None:
             self.debug_print("Run Mode: First Scheduled Poll")
             back_fill = datetime.utcnow().astimezone() - timedelta(days=30)
@@ -788,15 +960,17 @@ class CommvaultCloudConnector(BaseConnector):
         else:
             self.debug_print("Run Mode: Scheduled Poll")
             self._last_run_epoch = last_run
-            self.debug_print(f"Got last run as [{self._last_run_epoch}] from state")
-        self.debug_print(f"Last run state [{self._last_run_epoch}]")
+            self.debug_print('Got last run as [{}] from state'.format(self._last_run_epoch))
+        self.debug_print('Last run state [{}]'.format(self._last_run_epoch))
         if self.is_poll_now():
             self.debug_print("Run Mode: Poll Now")
         try:
             events = self._fetch_anomalous_events(param)
         except Exception as e:
             error_message = self._get_error_message_from_exception(e)
-            return action_result.set_status(phantom.APP_ERROR, f"Error retrieving events during poll: {error_message}")
+            return action_result.set_status(
+                phantom.APP_ERROR, "Error retrieving events during poll: {}".format(error_message)
+            )
 
         self.debug_print(f"Total events retrieved {len(events)}")
         self.save_progress(f"Total events retrieved {len(events)}")
@@ -821,7 +995,7 @@ class CommvaultCloudConnector(BaseConnector):
             container_id = self._add_container(event)
             if container_id is not None:
                 if self._add_artifact(container_id, event):
-                    self.debug_print("Container and artifact is added")
+                    self.debug_print('Container and artifact is added')
 
     def _fetch_anomalous_events(self, param):
         """
@@ -834,18 +1008,18 @@ class CommvaultCloudConnector(BaseConnector):
             list: List of events.
         """
         events = None
-        self.save_progress(f"In action handler for: {self.get_action_identifier()}")
+        self.save_progress("In action handler for: {0}".format(self.get_action_identifier()))
         action_result = self.add_action_result(ActionResult(dict(param)))
         events = self._fetch_incidents(action_result)
-        self.debug_print(f"Number of filtered events are [{len(events)}]")
+        self.debug_print('Number of filtered events are [{}]'.format(len(events)))
         return events
 
     def _handle_disable_data_aging(self, param):
-        self.save_progress(f"In action handler for: {self.get_action_identifier()}")
+        self.save_progress("In action handler for: {0}".format(self.get_action_identifier()))
         action_result = self.add_action_result(ActionResult(dict(param)))
         error_msg = None
         try:
-            client_name = param.get("client_name", "")
+            client_name = param.get('client_name', '')
             client_id = self.get_client_id(action_result, client_name)
             if int(client_id) != 0:
                 body = {
@@ -865,7 +1039,9 @@ class CommvaultCloudConnector(BaseConnector):
                     }
                 }
                 # print(body)
-                ret_val, response = self._make_rest_call("/Client/" + str(client_id), action_result, data=json.dumps(body), method="post")
+                ret_val, response = self._make_rest_call(
+                    "/Client/" + str(client_id), action_result, data=json.dumps(body), method="post"
+                )
                 # print('Response from data aging API {}'.format(response))
                 if phantom.is_fail(ret_val):
                     return action_result.get_status()
@@ -875,29 +1051,35 @@ class CommvaultCloudConnector(BaseConnector):
                     if response.get("errorMessage"):
                         error_msg = response.get("errorMessage")
                         raise Exception(error_msg)
-                    summary["status"] = f"Data aging is disabled for client [{client_name}]"
+                    summary['status'] = 'Data aging is disabled for client [{}]'.format(client_name)
             else:
-                raise Exception(f"Invalid client [{client_name}]")
+                raise Exception('Invalid client [{}]'.format(client_name))
         except Exception as e:
             error_message = self._get_error_message_from_exception(e)
-            return action_result.set_status(phantom.APP_ERROR, f"Error while disabling data aging: {error_message}")
-        self.save_progress(f"Data aging is disabled for client [{client_name}]")
+            return action_result.set_status(
+                phantom.APP_ERROR, "Error while disabling data aging: {}".format(error_message)
+            )
+        self.save_progress('Data aging is disabled for client [{}]'.format(client_name))
         return action_result.set_status(phantom.APP_SUCCESS)
 
     def _handle_disable_idp(self, param):
-        self.save_progress(f"In action handler for: {self.get_action_identifier()}")
+        self.save_progress("In action handler for: {0}".format(self.get_action_identifier()))
         action_result = self.add_action_result(ActionResult(dict(param)))
         error_msg = None
         not_enable = False
         try:
-            provider_name = param.get("provider_name", "")
-            ret_val, response = self._make_rest_call(f"/V4/SAML/{provider_name}", action_result, method="get")
+            provider_name = param.get('provider_name', '')
+            ret_val, response = self._make_rest_call(
+                "/V4/SAML/{}".format(provider_name), action_result, method="get"
+            )
             if "error" in response:
-                raise Exception(response.get("error", {}).get("errorString", ""))
+                raise Exception(response.get('error', {}).get('errorString', ''))
             if response.get("enabled"):
                 self.save_progress(f"SAML is enabled for identity server [{provider_name}]. Going to disable it")
                 body = {"enabled": not_enable, "type": "SAML"}
-                ret_val, response = self._make_rest_call(f"/V4/SAML/{provider_name}", action_result, data=body, method="put")
+                ret_val, response = self._make_rest_call(
+                    "/V4/SAML/{}".format(provider_name), action_result, data=body, method="put"
+                )
                 if phantom.is_fail(ret_val):
                     return action_result.get_status()
                 action_result.add_data(response)
@@ -906,28 +1088,32 @@ class CommvaultCloudConnector(BaseConnector):
                     raise Exception(error_msg)
         except Exception as e:
             error_message = self._get_error_message_from_exception(e)
-            return action_result.set_status(phantom.APP_ERROR, f"Error while disabling provider: {error_message}")
-        self.save_progress(f"Provider {provider_name} is disabled")
+            return action_result.set_status(
+                phantom.APP_ERROR, "Error while disabling provider: {}".format(error_message)
+            )
+        self.save_progress('Provider {} is disabled'.format(provider_name))
         return action_result.set_status(phantom.APP_SUCCESS)
 
     def handle_action(self, param):
         ret_val = phantom.APP_SUCCESS
         # Get the action that we are supposed to execute for this App Run
         action_id = self.get_action_identifier()
+        self.check_create_renew_token(param)
+        self.register(param)
         self.debug_print("action_id", self.get_action_identifier())
-        if action_id == "disable_user":
+        if action_id == 'disable_user':
             ret_val = self._handle_disable_user(param)
 
-        if action_id == "on_poll":
+        if action_id == 'on_poll':
             ret_val = self._handle_on_poll(param)
 
-        if action_id == "disable_data_aging":
+        if action_id == 'disable_data_aging':
             ret_val = self._handle_disable_data_aging(param)
 
-        if action_id == "disable_idp":
+        if action_id == 'disable_idp':
             ret_val = self._handle_disable_idp(param)
 
-        if action_id == "test_connectivity":
+        if action_id == 'test_connectivity':
             ret_val = self._handle_test_connectivity(param)
         return ret_val
 
@@ -946,14 +1132,20 @@ class CommvaultCloudConnector(BaseConnector):
         # Optional values should use the .get() function
         optional_config_name = config.get('optional_config_name')
         """
-        self._base_url = config.get("CommvaultEndpoint").strip()
-        self._access_key = config.get("CommvaultAccessToken").strip()
-        self._phantom_api_token = config.get("PhantomAPIToken").strip()
+        base_url = config.get('CommvaultEndpoint').strip().rstrip('/')
+        if not base_url.lower().endswith('/api'):
+            base_url = '{}/api'.format(base_url)
+        self._base_url = base_url
+        self._access_key = config.get('CommvaultAccessToken').strip()
+        self._original_access_key = self._access_key
+        self._phantom_api_token = config.get('PhantomAPIToken').strip()
         self._headers = {
-            "authtoken": f"QSDK {self._access_key}",
+            "authtoken": 'QSDK {}'.format(self._access_key),
             "Content-Type": "application/json",
             "Accept": "application/json",
+            'User-Agent': "SentinelDataConnector"
         }
+        self.debug_print('Headers [{}]'.format(self._headers))
         return phantom.APP_SUCCESS
 
     def finalize(self):
@@ -968,9 +1160,9 @@ def main():
 
     argparser = argparse.ArgumentParser()
 
-    argparser.add_argument("input_test_json", help="Input Test JSON file")
-    argparser.add_argument("-u", "--username", help="username", required=False)
-    argparser.add_argument("-p", "--password", help="password", required=False)
+    argparser.add_argument('input_test_json', help='Input Test JSON file')
+    argparser.add_argument('-u', '--username', help='username', required=False)
+    argparser.add_argument('-p', '--password', help='password', required=False)
     argparser.add_argument(
         "-v",
         "--verify",
@@ -990,29 +1182,28 @@ def main():
     if username is not None and password is None:
         # User specified a username but not a password, so ask
         import getpass
-
         password = getpass.getpass("Password: ")
 
     if username and password:
         try:
-            login_url = CommvaultCloudConnector._get_phantom_base_url() + "/login"
+            login_url = CommvaultCloudConnector._get_phantom_base_url() + '/login'
 
             print("Accessing the Login page")
             r = requests.get(login_url, verify=verify)
-            csrftoken = r.cookies["csrftoken"]
+            csrftoken = r.cookies['csrftoken']
 
             data = dict()
-            data["username"] = username
-            data["password"] = password
-            data["csrfmiddlewaretoken"] = csrftoken
+            data['username'] = username
+            data['password'] = password
+            data['csrfmiddlewaretoken'] = csrftoken
 
             headers = dict()
-            headers["Cookie"] = "csrftoken=" + csrftoken
-            headers["Referer"] = login_url
+            headers['Cookie'] = 'csrftoken=' + csrftoken
+            headers['Referer'] = login_url
 
             print("Logging into Platform to get the session id")
             r2 = requests.post(login_url, verify=verify, data=data, headers=headers)
-            session_id = r2.cookies["sessionid"]
+            session_id = r2.cookies['sessionid']
         except Exception as e:
             print("Unable to get session id from the platform. Error: " + str(e))
             exit(1)
@@ -1026,8 +1217,8 @@ def main():
         connector.print_progress_message = True
 
         if session_id is not None:
-            in_json["user_session_token"] = session_id
-            connector._set_csrf_info(csrftoken, headers["Referer"])
+            in_json['user_session_token'] = session_id
+            connector._set_csrf_info(csrftoken, headers['Referer'])
 
         ret_val = connector._handle_action(json.dumps(in_json), None)
         print(json.dumps(json.loads(ret_val), indent=4))
@@ -1035,5 +1226,5 @@ def main():
     exit(0)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
